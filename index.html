@@ -5,21 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Capsula — Твоё здоровье в цифре</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<!-- v=5 нужен, чтобы браузер загрузил новые стили, а не старые -->
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body data-theme="light">
 
-<!-- Курсор -->
 <div id="cursor-dot"></div>
 <div id="cursor-circle"></div>
 
-<!-- Фоновые пятна -->
-<div class="blob blob-1"></div>
-<div class="blob blob-2"></div>
+<div id="bg-blobs">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+</div>
 
 <!-- ===== ЛЕНДИНГ ===== -->
 <div id="landing" class="page active">
-
   <nav>
     <div class="logo">CAPSULA</div>
     <div class="nav-links">
@@ -71,33 +71,22 @@
       <p>Группировка по категориям, фильтр по аллергенам, предупреждения о побочных.</p>
     </div>
   </div>
-
 </div>
 
 <!-- ===== ПРИЛОЖЕНИЕ ===== -->
 <div id="app" class="page">
-
   <aside class="sidebar">
     <div class="logo">CAPSULA</div>
     <nav class="side-nav">
-      <a class="side-link active" data-tab="medicines" onclick="switchTab('medicines')">
-        <span>💊</span> Моя аптечка
-      </a>
-      <a class="side-link" data-tab="reminders" onclick="switchTab('reminders')">
-        <span>🔔</span> Напоминания
-      </a>
-      <a class="side-link" data-tab="family" onclick="switchTab('family')">
-        <span>👨‍👩‍👧</span> Семья
-      </a>
-      <a class="side-link" data-tab="profile" onclick="switchTab('profile')">
-        <span>👤</span> Профиль
-      </a>
+      <a class="side-link active" data-tab="medicines" onclick="switchTab('medicines')"><span>💊</span> Моя аптечка</a>
+      <a class="side-link" data-tab="reminders" onclick="switchTab('reminders')"><span>🔔</span> Напоминания</a>
+      <a class="side-link" data-tab="family" onclick="switchTab('family')"><span>👨‍👩‍👧</span> Семья</a>
+      <a class="side-link" data-tab="profile" onclick="switchTab('profile')"><span>👤</span> Профиль</a>
     </nav>
     <button class="btn-ghost small" onclick="closeApp()">← На главную</button>
   </aside>
 
   <main class="app-main">
-
     <!-- Вкладка: Моя аптечка -->
     <section class="tab-content active" id="tab-medicines">
       <header class="app-header">
@@ -106,9 +95,7 @@
           <p class="subtitle">Всё под контролем — сроки, остатки, напоминания</p>
         </div>
         <div class="header-actions">
-          <button class="btn-ghost" onclick="showStub('ИИ-распознавание', '🤖 Загрузите фото упаковки — и ИИ заполнит карточку автоматически. Функция в разработке.')">
-            📷 Распознать по фото
-          </button>
+          <button class="btn-ghost" onclick="showStub('ИИ-распознавание', '🤖 Загрузите фото упаковки — и ИИ заполнит карточку автоматически.')">📷 Распознать по фото</button>
           <button class="btn-primary" onclick="openModal()">+ Добавить лекарство</button>
         </div>
       </header>
@@ -125,59 +112,32 @@
 
       <div class="medicines-grid">
         <div class="med-card ok">
-          <div class="med-header">
-            <h3>Парацетамол</h3>
-            <span class="badge ok">В норме</span>
-          </div>
+          <div class="med-header"><h3>Парацетамол</h3><span class="badge ok">В норме</span></div>
           <p><strong>Назначение:</strong> головная боль, температура</p>
           <p><strong>Количество:</strong> 12 таб.</p>
           <p><strong>Годен до:</strong> 15.08.2026</p>
-          <div class="med-actions">
-            <button class="btn-mini">Изменить</button>
-            <button class="btn-mini danger">Удалить</button>
-          </div>
+          <div class="med-actions"><button class="btn-mini">Изменить</button><button class="btn-mini danger">Удалить</button></div>
         </div>
-
         <div class="med-card soon">
-          <div class="med-header">
-            <h3>Витамин С</h3>
-            <span class="badge soon">Истекает</span>
-          </div>
+          <div class="med-header"><h3>Витамин С</h3><span class="badge soon">Истекает</span></div>
           <p><strong>Назначение:</strong> иммунитет</p>
           <p><strong>Количество:</strong> 8 таб.</p>
           <p><strong>Годен до:</strong> 12.11.2026</p>
-          <div class="med-actions">
-            <button class="btn-mini">Изменить</button>
-            <button class="btn-mini danger">Удалить</button>
-          </div>
+          <div class="med-actions"><button class="btn-mini">Изменить</button><button class="btn-mini danger">Удалить</button></div>
         </div>
-
         <div class="med-card expired">
-          <div class="med-header">
-            <h3>Аспирин</h3>
-            <span class="badge expired">Просрочено</span>
-          </div>
+          <div class="med-header"><h3>Аспирин</h3><span class="badge expired">Просрочено</span></div>
           <p><strong>Назначение:</strong> боль, жар</p>
           <p><strong>Количество:</strong> 5 таб.</p>
           <p><strong>Годен до:</strong> 01.01.2024</p>
-          <div class="med-actions">
-            <button class="btn-mini">Изменить</button>
-            <button class="btn-mini danger">Удалить</button>
-          </div>
+          <div class="med-actions"><button class="btn-mini">Изменить</button><button class="btn-mini danger">Удалить</button></div>
         </div>
-
         <div class="med-card ok">
-          <div class="med-header">
-            <h3>Магний B6</h3>
-            <span class="badge ok">В норме</span>
-          </div>
+          <div class="med-header"><h3>Магний B6</h3><span class="badge ok">В норме</span></div>
           <p><strong>Назначение:</strong> нервы, сон</p>
           <p><strong>Количество:</strong> 40 капс.</p>
           <p><strong>Годен до:</strong> 20.05.2027</p>
-          <div class="med-actions">
-            <button class="btn-mini">Изменить</button>
-            <button class="btn-mini danger">Удалить</button>
-          </div>
+          <div class="med-actions"><button class="btn-mini">Изменить</button><button class="btn-mini danger">Удалить</button></div>
         </div>
       </div>
     </section>
@@ -185,53 +145,34 @@
     <!-- Вкладка: Напоминания -->
     <section class="tab-content" id="tab-reminders">
       <header class="app-header">
-        <div>
-          <h2>Напоминания</h2>
-          <p class="subtitle">Приём лекарств и уведомления о сроках</p>
-        </div>
-        <button class="btn-primary" onclick="showStub('Telegram-бот', '🤖 Бот будет присылать напоминания прямо в Telegram. Подключение в разработке.')">
-          Подключить Telegram-бота
-        </button>
+        <div><h2>Напоминания</h2><p class="subtitle">Приём лекарств и уведомления о сроках</p></div>
+        <button class="btn-primary" onclick="showStub('Telegram-бот', '🤖 Бот будет присылать напоминания прямо в Telegram.')">Подключить Telegram-бота</button>
       </header>
-
       <div class="empty-state">
         <div class="empty-icon">🔔</div>
         <h3>Пока нет напоминаний</h3>
         <p>Настрой график приёма — и мы будем напоминать в нужное время.</p>
-        <button class="btn-primary" onclick="showStub('График приёма', '⏰ Здесь появится форма настройки расписания.')">
-          Настроить график
-        </button>
+        <button class="btn-primary" onclick="showStub('График приёма', '⏰ Здесь появится форма настройки расписания.')">Настроить график</button>
       </div>
     </section>
 
     <!-- Вкладка: Семья -->
     <section class="tab-content" id="tab-family">
       <header class="app-header">
-        <div>
-          <h2>Семья</h2>
-          <p class="subtitle">Одна аптечка — для всех близких</p>
-        </div>
-        <button class="btn-primary" onclick="showStub('Добавление члена семьи', '👨‍👩‍👧 Здесь можно будет добавить профиль.')">
-          + Добавить члена семьи
-        </button>
+        <div><h2>Семья</h2><p class="subtitle">Одна аптечка — для всех близких</p></div>
+        <button class="btn-primary" onclick="showStub('Добавление члена семьи', '👨‍👩‍👧 Здесь можно будет добавить профиль.')">+ Добавить члена семьи</button>
       </header>
-
       <div class="family-grid">
         <div class="family-card">
-          <div class="avatar">👦</div>
-          <h3>Артём</h3>
-          <p class="subtitle">3 активных курса</p>
+          <div class="avatar">👦</div><h3>Артём</h3><p class="subtitle">3 активных курса</p>
           <button class="btn-ghost small" onclick="showStub('Список покупок', '📤 Отправка списка в разработке.')">Список покупок</button>
         </div>
         <div class="family-card">
-          <div class="avatar">👵</div>
-          <h3>Мама</h3>
-          <p class="subtitle">Ревизия вчера</p>
+          <div class="avatar">👵</div><h3>Мама</h3><p class="subtitle">Ревизия вчера</p>
           <button class="btn-ghost small" onclick="showStub('Отчёт', '📄 Отчёт в разработке.')">Посмотреть отчёт</button>
         </div>
         <div class="family-card add">
-          <div class="avatar">+</div>
-          <h3>Добавить</h3>
+          <div class="avatar">+</div><h3>Добавить</h3>
         </div>
       </div>
     </section>
@@ -239,59 +180,32 @@
     <!-- Вкладка: Профиль -->
     <section class="tab-content" id="tab-profile">
       <header class="app-header">
-        <div>
-          <h2>Профиль</h2>
-          <p class="subtitle">Личные данные и настройки</p>
-        </div>
+        <div><h2>Профиль</h2><p class="subtitle">Личные данные и настройки</p></div>
       </header>
-
       <div class="profile-card">
-        <div class="avatar large">👤</div>
-        <h3>Пользователь</h3>
-        <p class="subtitle">example@capsula.ru</p>
+        <div class="avatar large">👤</div><h3>Пользователь</h3><p class="subtitle">example@capsula.ru</p>
         <div class="profile-actions">
           <button class="btn-ghost" onclick="showStub('Редактирование', '✏️ Здесь будет форма редактирования профиля.')">Редактировать</button>
           <button class="btn-ghost" onclick="showStub('Отчёт для врача', '📄 Выгрузка PDF с историей приёма — в разработке.')">Отчёт для врача</button>
         </div>
       </div>
     </section>
-
   </main>
 </div>
 
-<!-- ===== МОДАЛКА: Добавить лекарство ===== -->
+<!-- Модалки -->
 <div id="modal" class="modal">
   <div class="modal-content">
-    <div class="modal-header">
-      <h3>Добавить лекарство</h3>
-      <button class="close-btn" onclick="closeModal()">×</button>
-    </div>
+    <div class="modal-header"><h3>Добавить лекарство</h3><button class="close-btn" onclick="closeModal()">×</button></div>
     <div class="modal-body">
-      <label>Название
-        <input type="text" placeholder="Например, Парацетамол">
-      </label>
-      <label>Назначение
-        <input type="text" placeholder="От чего помогает">
-      </label>
+      <label>Название<input type="text" placeholder="Например, Парацетамол"></label>
+      <label>Назначение<input type="text" placeholder="От чего помогает"></label>
       <div class="row">
-        <label>Количество
-          <input type="number" placeholder="12">
-        </label>
-        <label>Единица
-          <select>
-            <option>таб.</option>
-            <option>капс.</option>
-            <option>мл</option>
-            <option>г</option>
-          </select>
-        </label>
+        <label>Количество<input type="number" placeholder="12"></label>
+        <label>Единица<select><option>таб.</option><option>капс.</option><option>мл</option><option>г</option></select></label>
       </div>
-      <label>Годен до
-        <input type="date">
-      </label>
-      <label>Дозировка (необязательно)
-        <input type="text" placeholder="500 мг">
-      </label>
+      <label>Годен до<input type="date"></label>
+      <label>Дозировка (необязательно)<input type="text" placeholder="500 мг"></label>
     </div>
     <div class="modal-footer">
       <button class="btn-ghost" onclick="closeModal()">Отмена</button>
@@ -300,19 +214,11 @@
   </div>
 </div>
 
-<!-- ===== МОДАЛКА: Заглушка ===== -->
 <div id="stub" class="modal">
   <div class="modal-content small">
-    <div class="modal-header">
-      <h3 id="stub-title">Заголовок</h3>
-      <button class="close-btn" onclick="closeStub()">×</button>
-    </div>
-    <div class="modal-body">
-      <p id="stub-text">Текст</p>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-primary" onclick="closeStub()">Понятно</button>
-    </div>
+    <div class="modal-header"><h3 id="stub-title">Заголовок</h3><button class="close-btn" onclick="closeStub()">×</button></div>
+    <div class="modal-body"><p id="stub-text">Текст</p></div>
+    <div class="modal-footer"><button class="btn-primary" onclick="closeStub()">Понятно</button></div>
   </div>
 </div>
 
