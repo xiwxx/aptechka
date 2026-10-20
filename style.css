@@ -182,8 +182,9 @@ nav {
 @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
 
 /* ===== ПРИЛОЖЕНИЕ ===== */
-#app { display: none; grid-template-columns: 260px 1fr; min-height: 100vh; }
-#app.active { display: grid; }
+/* ===== ПРИЛОЖЕНИЕ ===== */
+#app { display: none; min-height: 100vh; }
+#app.active { display: grid; grid-template-columns: 260px 1fr; }
 
 .sidebar {
   background: var(--surface); border-right: 1px solid var(--border);
@@ -196,6 +197,7 @@ nav {
   padding: 14px 18px; border-radius: 14px;
   font-weight: 600; font-size: 0.95rem; cursor: pointer;
   transition: 0.2s; color: var(--text-dim);
+  text-decoration: none;
 }
 .side-link span { font-size: 1.2rem; }
 .side-link:hover { background: var(--canvas); color: var(--text); }
