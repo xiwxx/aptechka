@@ -44,14 +44,16 @@ function closeApp() {
   window.scrollTo(0, 0);
 }
 
-// ===== ПРОКРУТКА ПРИ НАЖАТИИ НА МЕНЮ =====
+// ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК =====
 function switchTab(name) {
   document.querySelectorAll('.side-link').forEach(l => l.classList.remove('active'));
   document.querySelector(`.side-link[data-tab="${name}"]`).classList.add('active');
-  
+
+  document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
   const targetSection = document.getElementById('tab-' + name);
   if (targetSection) {
-    targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    targetSection.classList.add('active');
+    window.scrollTo(0, 0);
   }
 }
 
