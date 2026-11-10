@@ -6,7 +6,7 @@
 <title>Capsula — Твоё здоровье в цифре</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <!-- v=5 нужен, чтобы браузер загрузил новые стили, а не старые -->
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body data-theme="light">
 
@@ -35,6 +35,7 @@
     <p class="reveal">Приложение, которое знает, что лежит в твоём шкафу. Следи за сроками, остатками и напоминаниями.</p>
     <div class="reveal hero-actions">
       <button class="btn-primary" onclick="openApp()">Войти в приложение</button>
+      <button class="btn-ghost" onclick="guestLogin()">👀 Демо-вход</button>
       <button class="btn-ghost" onclick="showStub('Сканер', '📷 Сканирование штрих-кодов появится в следующей версии.')">Запустить сканер</button>
     </div>
   </section>
@@ -117,35 +118,21 @@
     <section class="tab-content" id="tab-reminders">
       <header class="app-header">
         <div><h2>Напоминания</h2><p class="subtitle">Приём лекарств и уведомления о сроках</p></div>
-        <button class="btn-primary" onclick="showStub('Telegram-бот', '🤖 Бот будет присылать напоминания прямо в Telegram.')">Подключить Telegram-бота</button>
+        <div class="header-actions">
+          <button class="btn-ghost" onclick="showStub('Telegram-бот', '🤖 Бот будет присылать напоминания прямо в Telegram.')">Подключить Telegram-бота</button>
+          <button class="btn-primary" onclick="openReminderModal()">+ Добавить напоминание</button>
+        </div>
       </header>
-      <div class="empty-state">
-        <div class="empty-icon">🔔</div>
-        <h3>Пока нет напоминаний</h3>
-        <p>Настрой график приёма — и мы будем напоминать в нужное время.</p>
-        <button class="btn-primary" onclick="showStub('График приёма', '⏰ Здесь появится форма настройки расписания.')">Настроить график</button>
-      </div>
+      <div id="reminders-list"></div>
     </section>
 
     <!-- Вкладка: Семья -->
     <section class="tab-content" id="tab-family">
       <header class="app-header">
         <div><h2>Семья</h2><p class="subtitle">Одна аптечка — для всех близких</p></div>
-        <button class="btn-primary" onclick="showStub('Добавление члена семьи', '👨‍👩‍👧 Здесь можно будет добавить профиль.')">+ Добавить члена семьи</button>
+        <button class="btn-primary" onclick="openFamilyModal()">+ Добавить члена семьи</button>
       </header>
-      <div class="family-grid">
-        <div class="family-card">
-          <div class="avatar">👦</div><h3>Артём</h3><p class="subtitle">3 активных курса</p>
-          <button class="btn-ghost small" onclick="showStub('Список покупок', '📤 Отправка списка в разработке.')">Список покупок</button>
-        </div>
-        <div class="family-card">
-          <div class="avatar">👵</div><h3>Мама</h3><p class="subtitle">Ревизия вчера</p>
-          <button class="btn-ghost small" onclick="showStub('Отчёт', '📄 Отчёт в разработке.')">Посмотреть отчёт</button>
-        </div>
-        <div class="family-card add">
-          <div class="avatar">+</div><h3>Добавить</h3>
-        </div>
-      </div>
+      <div class="family-grid" id="family-grid"></div>
     </section>
 
     <!-- Вкладка: Профиль -->
@@ -224,6 +211,41 @@
     <div class="modal-footer">
       <button class="btn-ghost" onclick="openLogin()">У меня есть аккаунт</button>
       <button class="btn-primary" onclick="register()">Создать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка напоминания -->
+<div id="reminder-modal" class="modal">
+  <div class="modal-content small">
+    <div class="modal-header"><h3>Новое напоминание</h3><button class="close-btn" onclick="closeReminderModal()">×</button></div>
+    <div class="modal-body">
+      <label>Лекарство<select id="rem-medicine"></select></label>
+      <label>Время приёма<input type="time" id="rem-time"></label>
+      <label>Комментарий (необязательно)<input type="text" id="rem-note" placeholder="Например, после еды"></label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeReminderModal()">Отмена</button>
+      <button class="btn-primary" onclick="saveReminder()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка члена семьи -->
+<div id="family-modal" class="modal">
+  <div class="modal-content small">
+    <div class="modal-header"><h3>Добавить члена семьи</h3><button class="close-btn" onclick="closeFamilyModal()">×</button></div>
+    <div class="modal-body">
+      <label>Имя<input type="text" id="family-name" placeholder="Например, Мама"></label>
+      <label>Роль<input type="text" id="family-role" placeholder="мама, папа, ребёнок…"></label>
+      <label>Аватар<select id="family-avatar">
+        <option>👦</option><option>👧</option><option>👨</option><option>👩</option>
+        <option>👵</option><option>👴</option><option>👶</option>
+      </select></label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeFamilyModal()">Отмена</button>
+      <button class="btn-primary" onclick="saveFamilyMember()">Добавить</button>
     </div>
   </div>
 </div>

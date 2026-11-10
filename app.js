@@ -247,6 +247,8 @@ function enterApp() {
   window.scrollTo(0, 0);
   renderProfile();
   renderMedicines();
+  renderReminders();
+  renderFamily();
 }
 function closeApp() {
   document.getElementById('app').classList.remove('active');
@@ -292,3 +294,149 @@ const observer = new IntersectionObserver(entries => {
   entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('active'); });
 }, { threshold: 0.1 });
 document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// ===== ДЕМО-ВХОД =====
+async function guestLogin() {
+  const email = 'guest@capsula.ru';
+  const users = getUsers();
+  if (!users.some(u => u.email === email)) {
+    const hash = await hashPassword('guest123');
+    users.push({ name: 'Гость', email, hash });
+    saveUsers(users);
+  }
+  seedGuestData(email);
+  localStorage.setItem('capsula_session', email);
+  closeAuth();
+  enterApp();
+}
+
+function seedGuestData(email) {
+  const plusDays = d => {
+    const x = new Date(); x.setDate(x.getDate() + d);
+    return x.toISOString().slice(0, 10);
+  };
+  const medKey = 'capsula_medicines_' + email;
+  if (!localStorage.getItem(medKey)) {
+    localStorage.setItem(medKey, JSON.stringify([
+      { id: 'g1', name: 'Парацетамол', purpose: 'головная боль, температура', quantity: 12, unit: 'таб.', expiry: plusDays(200), dosage: '500 мг' },
+      { id: 'g2', name: 'Витамин С', purpose: 'иммунитет', quantity: 8, unit: 'таб.', expiry: plusDays(10), dosage: '' },
+      { id: 'g3', name: 'Аспирин', purpose: 'боль, жар', quantity: 5, unit: 'таб.', expiry: '2024-01-01', dosage: '' },
+      { id: 'g4', name: 'Магний B6', purpose: 'нервы, сон', quantity: 40, unit: 'капс.', expiry: plusDays(500), dosage: '' }
+    ]));
+  }
+  const remKey = 'capsula_reminders_' + email;
+  if (!localStorage.getItem(remKey)) {
+    localStorage.setItem(remKey, JSON.stringify([
+      { id: 'r1', medicine: 'Парацетамол', time: '08:00', note: 'После завтрака' },
+      { id: 'r2', medicine: 'Витамин С', time: '20:00', note: '' }
+    ]));
+  }
+  const famKey = 'capsula_family_' + email;
+  if (!localStorage.getItem(famKey)) {
+    localStorage.setItem(famKey, JSON.stringify([
+      { id: 'f1', name: 'Мама', role: 'мама', avatar: '👵' },
+      { id: 'f2', name: 'Артём', role: 'сын', avatar: '👦' }
+    ]));
+  }
+}
+
+// ===== НАПОМИНАНИЯ =====
+function getReminders() {
+  const email = getSession();
+  if (!email) return [];
+  try { return JSON.parse(localStorage.getItem('capsula_reminders_' + email) || '[]'); }
+  catch { return []; }
+}
+function saveReminders(list) {
+  const email = getSession();
+  if (!email) return;
+  localStorage.setItem('capsula_reminders_' + email, JSON.stringify(list));
+}
+function renderReminders() {
+  const container = document.getElementById('reminders-list');
+  const list = getReminders();
+  if (list.length === 0) {
+    container.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">🔔</div>
+      <h3>Пока нет напоминаний</h3>
+      <p>Настрой график приёма — и мы будем напоминать в нужное время.</p>
+      <button class="btn-primary" onclick="openReminderModal()">Настроить график</button>
+    </div>`;
+    return;
+  }
+  container.innerHTML = list.map(r => `<div class="reminder-item">
+    <div class="reminder-icon">💊</div>
+    <div class="reminder-info"><h4>${esc(r.medicine)}</h4><p>${r.time}${r.note ? ' · ' + esc(r.note) : ''}</p></div>
+    <button class="btn-mini danger" onclick="deleteReminder('${r.id}')">Удалить</button>
+  </div>`).join('');
+}
+function openReminderModal() {
+  const sel = document.getElementById('rem-medicine');
+  const meds = getMedicines();
+  sel.innerHTML = meds.length
+    ? meds.map(m => `<option>${esc(m.name)}</option>`).join('')
+    : '<option value="">Сначала добавьте лекарство</option>';
+  setVal('rem-time', '');
+  setVal('rem-note', '');
+  document.getElementById('reminder-modal').classList.add('active');
+}
+function closeReminderModal() { document.getElementById('reminder-modal').classList.remove('active'); }
+function saveReminder() {
+  const medicine = val('rem-medicine');
+  const time = val('rem-time');
+  const note = val('rem-note').trim();
+  if (!medicine || !time) { alert('Выберите лекарство и время.'); return; }
+  const list = getReminders();
+  list.push({ id: 'r' + Date.now().toString(36), medicine, time, note });
+  saveReminders(list);
+  closeReminderModal();
+  renderReminders();
+}
+function deleteReminder(id) {
+  saveReminders(getReminders().filter(r => r.id !== id));
+  renderReminders();
+}
+
+// ===== СЕМЬЯ =====
+function getFamily() {
+  const email = getSession();
+  if (!email) return [];
+  try { return JSON.parse(localStorage.getItem('capsula_family_' + email) || '[]'); }
+  catch { return []; }
+}
+function saveFamily(list) {
+  const email = getSession();
+  if (!email) return;
+  localStorage.setItem('capsula_family_' + email, JSON.stringify(list));
+}
+function renderFamily() {
+  const grid = document.getElementById('family-grid');
+  const list = getFamily();
+  grid.innerHTML = list.map(f => `<div class="family-card">
+    <div class="avatar">${esc(f.avatar)}</div><h3>${esc(f.name)}</h3><p class="subtitle">${esc(f.role) || 'член семьи'}</p>
+    <div class="med-actions"><button class="btn-mini danger" onclick="deleteFamilyMember('${f.id}')">Удалить</button></div>
+  </div>`).join('') + `<div class="family-card add" onclick="openFamilyModal()">
+    <div class="avatar">+</div><h3>Добавить</h3>
+  </div>`;
+}
+function openFamilyModal() {
+  setVal('family-name', '');
+  setVal('family-role', '');
+  document.getElementById('family-modal').classList.add('active');
+}
+function closeFamilyModal() { document.getElementById('family-modal').classList.remove('active'); }
+function saveFamilyMember() {
+  const name = val('family-name').trim();
+  const role = val('family-role').trim();
+  const avatar = val('family-avatar');
+  if (!name) { alert('Введите имя.'); return; }
+  const list = getFamily();
+  list.push({ id: 'f' + Date.now().toString(36), name, role, avatar });
+  saveFamily(list);
+  closeFamilyModal();
+  renderFamily();
+}
+function deleteFamilyMember(id) {
+  saveFamily(getFamily().filter(f => f.id !== id));
+  renderFamily();
+}

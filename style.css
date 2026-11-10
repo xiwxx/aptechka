@@ -131,6 +131,13 @@ input, select { font-family: inherit; }
 .empty-state h3 { font-family: 'Outfit', sans-serif; font-size: 1.5rem; margin-bottom: 10px; }
 .empty-state p { color: var(--text-dim); margin-bottom: 25px; }
 
+.reminder-item { display: flex; align-items: center; gap: 15px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 18px 20px; margin-bottom: 12px; transition: 0.2s; }
+.reminder-item:hover { box-shadow: var(--shadow); }
+.reminder-icon { font-size: 1.6rem; width: 46px; height: 46px; background: var(--canvas); border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.reminder-info { flex: 1; }
+.reminder-info h4 { font-family: 'Outfit', sans-serif; margin-bottom: 3px; }
+.reminder-info p { color: var(--text-dim); font-size: 0.9rem; }
+
 .family-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
 .family-card { background: var(--surface); border-radius: 24px; padding: 30px; text-align: center; border: 1px solid var(--border); transition: 0.3s; }
 .family-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
