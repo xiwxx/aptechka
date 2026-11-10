@@ -30,17 +30,228 @@ themeBtn.addEventListener('click', () => {
   themeBtn.innerText = isDark ? '🌙 Тема' : '☀️ Тема';
 });
 
+// ===== ВСПОМОГАТЕЛЬНОЕ =====
+function val(id) { return document.getElementById(id).value; }
+function setVal(id, v) { document.getElementById(id).value = v; }
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function formatDate(iso) {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-');
+  return `${d}.${m}.${y}`;
+}
+
+// ===== АВТОРИЗАЦИЯ =====
+function getUsers() {
+  try { return JSON.parse(localStorage.getItem('capsula_users') || '[]'); }
+  catch { return []; }
+}
+function saveUsers(list) { localStorage.setItem('capsula_users', JSON.stringify(list)); }
+function getSession() { return localStorage.getItem('capsula_session'); }
+
+async function hashPassword(str) {
+  const data = new TextEncoder().encode(str + '::capsula-salt');
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function openAuth() { document.getElementById('auth-login').classList.add('active'); }
+function closeAuth() {
+  document.getElementById('auth-login').classList.remove('active');
+  document.getElementById('auth-register').classList.remove('active');
+}
+function openLogin() {
+  document.getElementById('auth-register').classList.remove('active');
+  document.getElementById('auth-login').classList.add('active');
+}
+function openRegister() {
+  document.getElementById('auth-login').classList.remove('active');
+  document.getElementById('auth-register').classList.add('active');
+}
+
+async function register() {
+  const name = val('reg-name').trim();
+  const email = val('reg-email').trim().toLowerCase();
+  const pwd = val('reg-password');
+  const pwd2 = val('reg-password2');
+  const err = document.getElementById('reg-error');
+  err.innerText = '';
+  if (!name || !email || !pwd) { err.innerText = 'Заполните все поля.'; return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { err.innerText = 'Некорректный email.'; return; }
+  if (pwd.length < 4) { err.innerText = 'Пароль должен быть минимум 4 символа.'; return; }
+  if (pwd !== pwd2) { err.innerText = 'Пароли не совпадают.'; return; }
+  const users = getUsers();
+  if (users.some(u => u.email === email)) { err.innerText = 'Этот email уже зарегистрирован.'; return; }
+  const hash = await hashPassword(pwd);
+  users.push({ name, email, hash });
+  saveUsers(users);
+  localStorage.setItem('capsula_session', email);
+  closeAuth();
+  enterApp();
+}
+
+async function login() {
+  const email = val('login-email').trim().toLowerCase();
+  const pwd = val('login-password');
+  const err = document.getElementById('login-error');
+  err.innerText = '';
+  if (!email || !pwd) { err.innerText = 'Введите email и пароль.'; return; }
+  const users = getUsers();
+  const user = users.find(u => u.email === email);
+  const hash = await hashPassword(pwd);
+  if (!user || user.hash !== hash) { err.innerText = 'Неверный email или пароль.'; return; }
+  localStorage.setItem('capsula_session', email);
+  closeAuth();
+  enterApp();
+}
+
+function logout() {
+  localStorage.removeItem('capsula_session');
+  closeApp();
+}
+
+function renderProfile() {
+  const email = getSession();
+  const user = getUsers().find(u => u.email === email);
+  if (!user) return;
+  document.getElementById('profile-name').innerText = user.name;
+  document.getElementById('profile-email').innerText = user.email;
+}
+
+// ===== ЛЕКАРСТВА (localStorage) =====
+function getMedicines() {
+  const email = getSession();
+  if (!email) return [];
+  try { return JSON.parse(localStorage.getItem('capsula_medicines_' + email) || '[]'); }
+  catch { return []; }
+}
+function saveMedicines(list) {
+  const email = getSession();
+  if (!email) return;
+  localStorage.setItem('capsula_medicines_' + email, JSON.stringify(list));
+}
+
+function getStatus(expiry) {
+  if (!expiry) return 'ok';
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = (new Date(expiry) - today) / (1000 * 60 * 60 * 24);
+  if (diff < 0) return 'expired';
+  if (diff <= 30) return 'soon';
+  return 'ok';
+}
+
+const STATUS_LABELS = { ok: 'В норме', soon: 'Истекает', expired: 'Просрочено' };
+let currentFilter = 'all';
+
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.filter === f));
+  renderMedicines();
+}
+
+function renderMedicines() {
+  const grid = document.getElementById('medicines-grid');
+  const q = (val('search-input') || '').toLowerCase().trim();
+  let list = getMedicines().filter(m => {
+    const matches = !q || (m.name || '').toLowerCase().includes(q) || (m.purpose || '').toLowerCase().includes(q);
+    return matches && (currentFilter === 'all' || getStatus(m.expiry) === currentFilter);
+  });
+
+  if (list.length === 0) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;">
+      <div class="empty-icon">💊</div>
+      <h3>Ничего не найдено</h3>
+      <p>${getMedicines().length === 0 ? 'Добавьте первое лекарство — и оно появится здесь.' : 'Попробуйте изменить поиск или фильтр.'}</p>
+      ${getMedicines().length === 0 ? '<button class="btn-primary" onclick="openModal()">+ Добавить лекарство</button>' : ''}
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(m => {
+    const st = getStatus(m.expiry);
+    return `<div class="med-card ${st}">
+      <div class="med-header"><h3>${esc(m.name)}</h3><span class="badge ${st}">${STATUS_LABELS[st]}</span></div>
+      <p><strong>Назначение:</strong> ${esc(m.purpose) || '—'}</p>
+      <p><strong>Количество:</strong> ${m.quantity} ${esc(m.unit)}</p>
+      <p><strong>Годен до:</strong> ${formatDate(m.expiry)}</p>
+      ${m.dosage ? `<p><strong>Дозировка:</strong> ${esc(m.dosage)}</p>` : ''}
+      <div class="med-actions">
+        <button class="btn-mini" onclick="editMedicine('${m.id}')">Изменить</button>
+        <button class="btn-mini danger" onclick="deleteMedicine('${m.id}')">Удалить</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function saveMedicine() {
+  const name = val('med-name').trim();
+  const purpose = val('med-purpose').trim();
+  const quantity = val('med-quantity').trim();
+  const unit = val('med-unit');
+  const expiry = val('med-expiry');
+  const dosage = val('med-dosage').trim();
+
+  if (!name || !quantity || !expiry) {
+    alert('Заполните название, количество и срок годности.');
+    return;
+  }
+
+  const list = getMedicines();
+  const editId = val('med-edit-id');
+  const data = { name, purpose, quantity: Number(quantity), unit, expiry, dosage };
+
+  if (editId) {
+    const m = list.find(x => x.id === editId);
+    if (m) Object.assign(m, data);
+  } else {
+    list.push({ id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ...data });
+  }
+
+  saveMedicines(list);
+  closeModal();
+  renderMedicines();
+}
+
+function editMedicine(id) {
+  const m = getMedicines().find(x => x.id === id);
+  if (!m) return;
+  setVal('med-edit-id', m.id);
+  setVal('med-name', m.name);
+  setVal('med-purpose', m.purpose || '');
+  setVal('med-quantity', m.quantity);
+  setVal('med-unit', m.unit);
+  setVal('med-expiry', m.expiry);
+  setVal('med-dosage', m.dosage || '');
+  document.getElementById('modal-title').innerText = 'Изменить лекарство';
+  openModal();
+}
+
+function deleteMedicine(id) {
+  const m = getMedicines().find(x => x.id === id);
+  if (!m) return;
+  if (!confirm(`Удалить «${m.name}»?`)) return;
+  saveMedicines(getMedicines().filter(x => x.id !== id));
+  renderMedicines();
+}
+
 // ===== ПЕРЕХОД МЕЖДУ ЭКРАНАМИ =====
 function openApp() {
+  if (!getSession()) { openAuth(); return; }
+  enterApp();
+}
+function enterApp() {
   document.getElementById('landing').classList.remove('active');
   document.getElementById('app').classList.add('active');
-  if(document.getElementById('bg-blobs')) document.getElementById('bg-blobs').style.display = 'none';
+  if (document.getElementById('bg-blobs')) document.getElementById('bg-blobs').style.display = 'none';
   window.scrollTo(0, 0);
+  renderProfile();
+  renderMedicines();
 }
 function closeApp() {
   document.getElementById('app').classList.remove('active');
   document.getElementById('landing').classList.add('active');
-  if(document.getElementById('bg-blobs')) document.getElementById('bg-blobs').style.display = 'block';
+  if (document.getElementById('bg-blobs')) document.getElementById('bg-blobs').style.display = 'block';
   window.scrollTo(0, 0);
 }
 
@@ -58,7 +269,12 @@ function switchTab(name) {
 }
 
 // ===== МОДАЛКИ =====
-function openModal() { document.getElementById('modal').classList.add('active'); }
+function openModal() {
+  document.getElementById('med-edit-id').value = '';
+  document.getElementById('modal-title').innerText = 'Добавить лекарство';
+  ['med-name', 'med-purpose', 'med-quantity', 'med-expiry', 'med-dosage'].forEach(id => setVal(id, ''));
+  document.getElementById('modal').classList.add('active');
+}
 function closeModal() { document.getElementById('modal').classList.remove('active'); }
 function showStub(title, text) {
   document.getElementById('stub-title').innerText = title;

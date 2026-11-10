@@ -6,7 +6,7 @@
 <title>Capsula — Твоё здоровье в цифре</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <!-- v=5 нужен, чтобы браузер загрузил новые стили, а не старые -->
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body data-theme="light">
 
@@ -101,45 +101,16 @@
       </header>
 
       <div class="toolbar">
-        <input type="text" class="search" placeholder="🔍 Поиск по названию...">
+        <input type="text" class="search" id="search-input" placeholder="🔍 Поиск по названию..." oninput="renderMedicines()">
         <div class="filters">
-          <button class="chip active">Все</button>
-          <button class="chip">В норме</button>
-          <button class="chip">Истекает</button>
-          <button class="chip">Просрочено</button>
+          <button class="chip active" data-filter="all" onclick="setFilter('all')">Все</button>
+          <button class="chip" data-filter="ok" onclick="setFilter('ok')">В норме</button>
+          <button class="chip" data-filter="soon" onclick="setFilter('soon')">Истекает</button>
+          <button class="chip" data-filter="expired" onclick="setFilter('expired')">Просрочено</button>
         </div>
       </div>
 
-      <div class="medicines-grid">
-        <div class="med-card ok">
-          <div class="med-header"><h3>Парацетамол</h3><span class="badge ok">В норме</span></div>
-          <p><strong>Назначение:</strong> головная боль, температура</p>
-          <p><strong>Количество:</strong> 12 таб.</p>
-          <p><strong>Годен до:</strong> 15.08.2026</p>
-          <div class="med-actions"><button class="btn-mini">Изменить</button><button class="btn-mini danger">Удалить</button></div>
-        </div>
-        <div class="med-card soon">
-          <div class="med-header"><h3>Витамин С</h3><span class="badge soon">Истекает</span></div>
-          <p><strong>Назначение:</strong> иммунитет</p>
-          <p><strong>Количество:</strong> 8 таб.</p>
-          <p><strong>Годен до:</strong> 12.11.2026</p>
-          <div class="med-actions"><button class="btn-mini">Изменить</button><button class="btn-mini danger">Удалить</button></div>
-        </div>
-        <div class="med-card expired">
-          <div class="med-header"><h3>Аспирин</h3><span class="badge expired">Просрочено</span></div>
-          <p><strong>Назначение:</strong> боль, жар</p>
-          <p><strong>Количество:</strong> 5 таб.</p>
-          <p><strong>Годен до:</strong> 01.01.2024</p>
-          <div class="med-actions"><button class="btn-mini">Изменить</button><button class="btn-mini danger">Удалить</button></div>
-        </div>
-        <div class="med-card ok">
-          <div class="med-header"><h3>Магний B6</h3><span class="badge ok">В норме</span></div>
-          <p><strong>Назначение:</strong> нервы, сон</p>
-          <p><strong>Количество:</strong> 40 капс.</p>
-          <p><strong>Годен до:</strong> 20.05.2027</p>
-          <div class="med-actions"><button class="btn-mini">Изменить</button><button class="btn-mini danger">Удалить</button></div>
-        </div>
-      </div>
+      <div class="medicines-grid" id="medicines-grid"></div>
     </section>
 
     <!-- Вкладка: Напоминания -->
@@ -183,33 +154,35 @@
         <div><h2>Профиль</h2><p class="subtitle">Личные данные и настройки</p></div>
       </header>
       <div class="profile-card">
-        <div class="avatar large">👤</div><h3>Пользователь</h3><p class="subtitle">example@capsula.ru</p>
+        <div class="avatar large">👤</div><h3 id="profile-name">Пользователь</h3><p class="subtitle" id="profile-email">example@capsula.ru</p>
         <div class="profile-actions">
           <button class="btn-ghost" onclick="showStub('Редактирование', '✏️ Здесь будет форма редактирования профиля.')">Редактировать</button>
           <button class="btn-ghost" onclick="showStub('Отчёт для врача', '📄 Выгрузка PDF с историей приёма — в разработке.')">Отчёт для врача</button>
+          <button class="btn-ghost" onclick="logout()">🚪 Выйти</button>
         </div>
       </div>
     </section>
   </main>
 </div>
 
-<!-- Модалки -->
+<!-- Модалка добавления/редактирования лекарства -->
 <div id="modal" class="modal">
   <div class="modal-content">
-    <div class="modal-header"><h3>Добавить лекарство</h3><button class="close-btn" onclick="closeModal()">×</button></div>
+    <div class="modal-header"><h3 id="modal-title">Добавить лекарство</h3><button class="close-btn" onclick="closeModal()">×</button></div>
     <div class="modal-body">
-      <label>Название<input type="text" placeholder="Например, Парацетамол"></label>
-      <label>Назначение<input type="text" placeholder="От чего помогает"></label>
+      <input type="hidden" id="med-edit-id">
+      <label>Название<input type="text" id="med-name" placeholder="Например, Парацетамол"></label>
+      <label>Назначение<input type="text" id="med-purpose" placeholder="От чего помогает"></label>
       <div class="row">
-        <label>Количество<input type="number" placeholder="12"></label>
-        <label>Единица<select><option>таб.</option><option>капс.</option><option>мл</option><option>г</option></select></label>
+        <label>Количество<input type="number" id="med-quantity" placeholder="12" min="0"></label>
+        <label>Единица<select id="med-unit"><option>таб.</option><option>капс.</option><option>мл</option><option>г</option></select></label>
       </div>
-      <label>Годен до<input type="date"></label>
-      <label>Дозировка (необязательно)<input type="text" placeholder="500 мг"></label>
+      <label>Годен до<input type="date" id="med-expiry"></label>
+      <label>Дозировка (необязательно)<input type="text" id="med-dosage" placeholder="500 мг"></label>
     </div>
     <div class="modal-footer">
       <button class="btn-ghost" onclick="closeModal()">Отмена</button>
-      <button class="btn-primary" onclick="closeModal(); showStub('Сохранение', '💾 Сохранение появится, когда подключим бэкенд.')">Сохранить</button>
+      <button class="btn-primary" onclick="saveMedicine()">Сохранить</button>
     </div>
   </div>
 </div>
@@ -219,6 +192,39 @@
     <div class="modal-header"><h3 id="stub-title">Заголовок</h3><button class="close-btn" onclick="closeStub()">×</button></div>
     <div class="modal-body"><p id="stub-text">Текст</p></div>
     <div class="modal-footer"><button class="btn-primary" onclick="closeStub()">Понятно</button></div>
+  </div>
+</div>
+
+<!-- ===== АВТОРИЗАЦИЯ ===== -->
+<div id="auth-login" class="modal">
+  <div class="modal-content small">
+    <div class="modal-header"><h3>Вход</h3><button class="close-btn" onclick="closeAuth()">×</button></div>
+    <div class="modal-body">
+      <label>Email<input type="email" id="login-email" placeholder="you@example.com"></label>
+      <label>Пароль<input type="password" id="login-password" placeholder="••••••••"></label>
+      <p class="auth-error" id="login-error"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="openRegister()">Создать аккаунт</button>
+      <button class="btn-primary" onclick="login()">Войти</button>
+    </div>
+  </div>
+</div>
+
+<div id="auth-register" class="modal">
+  <div class="modal-content small">
+    <div class="modal-header"><h3>Регистрация</h3><button class="close-btn" onclick="closeAuth()">×</button></div>
+    <div class="modal-body">
+      <label>Имя<input type="text" id="reg-name" placeholder="Как вас зовут"></label>
+      <label>Email<input type="email" id="reg-email" placeholder="you@example.com"></label>
+      <label>Пароль<input type="password" id="reg-password" placeholder="Минимум 4 символа"></label>
+      <label>Повторите пароль<input type="password" id="reg-password2" placeholder="Ещё раз"></label>
+      <p class="auth-error" id="reg-error"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="openLogin()">У меня есть аккаунт</button>
+      <button class="btn-primary" onclick="register()">Создать</button>
+    </div>
   </div>
 </div>
 
