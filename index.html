@@ -142,7 +142,7 @@
       <div class="profile-card">
         <div class="avatar large">👤</div><h3 id="profile-name">Пользователь</h3><p class="subtitle" id="profile-email">example@capsula.ru</p>
         <div class="profile-actions">
-          <button class="btn-ghost" onclick="showStub('Редактирование', '✏️ Здесь будет форма редактирования профиля.')">Редактировать</button>
+          <button class="btn-ghost" onclick="openProfileModal()">✏️ Редактировать</button>
           <button class="btn-ghost" onclick="showStub('Отчёт для врача', '📄 Выгрузка PDF с историей приёма — в разработке.')">Отчёт для врача</button>
           <button class="btn-ghost" onclick="logout()">🚪 Выйти</button>
         </div>
@@ -245,6 +245,23 @@
     <div class="modal-footer">
       <button class="btn-ghost" onclick="closeFamilyModal()">Отмена</button>
       <button class="btn-primary" onclick="saveFamilyMember()">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка редактирования профиля -->
+<div id="profile-modal" class="modal">
+  <div class="modal-content small">
+    <div class="modal-header"><h3>Редактировать профиль</h3><button class="close-btn" onclick="closeProfileModal()">×</button></div>
+    <div class="modal-body">
+      <label>Имя<input type="text" id="prof-name" placeholder="Ваше имя"></label>
+      <label>Email<input type="email" id="prof-email" placeholder="you@example.com"></label>
+      <label>Новый пароль (необязательно)<input type="password" id="prof-password" placeholder="Оставьте пустым, чтобы не менять"></label>
+      <p class="auth-error" id="prof-error"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeProfileModal()">Отмена</button>
+      <button class="btn-primary" onclick="saveProfile()">Сохранить</button>
     </div>
   </div>
 </div>

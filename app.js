@@ -119,6 +119,59 @@ function renderProfile() {
   document.getElementById('profile-email').innerText = user.email;
 }
 
+function openProfileModal() {
+  const email = getSession();
+  const user = getUsers().find(u => u.email === email);
+  if (!user) return;
+  setVal('prof-name', user.name);
+  setVal('prof-email', user.email);
+  setVal('prof-password', '');
+  document.getElementById('prof-error').innerText = '';
+  document.getElementById('profile-modal').classList.add('active');
+}
+function closeProfileModal() { document.getElementById('profile-modal').classList.remove('active'); }
+
+async function saveProfile() {
+  const name = val('prof-name').trim();
+  const newEmail = val('prof-email').trim().toLowerCase();
+  const newPwd = val('prof-password');
+  const err = document.getElementById('prof-error');
+  err.innerText = '';
+  const oldEmail = getSession();
+
+  if (!name || !newEmail) { err.innerText = 'Заполните имя и email.'; return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(newEmail)) { err.innerText = 'Некорректный email.'; return; }
+  if (newPwd && newPwd.length < 4) { err.innerText = 'Пароль должен быть минимум 4 символа.'; return; }
+
+  const users = getUsers();
+  const user = users.find(u => u.email === oldEmail);
+  if (!user) { err.innerText = 'Пользователь не найден.'; return; }
+  if (newEmail !== oldEmail && users.some(u => u.email === newEmail)) {
+    err.innerText = 'Этот email уже занят.'; return;
+  }
+
+  user.name = name;
+  if (newPwd) user.hash = await hashPassword(newPwd);
+  if (newEmail !== oldEmail) {
+    user.email = newEmail;
+    migrateUserData(oldEmail, newEmail);
+  }
+  saveUsers(users);
+  localStorage.setItem('capsula_session', newEmail);
+  closeProfileModal();
+  renderProfile();
+}
+
+function migrateUserData(from, to) {
+  ['capsula_medicines_', 'capsula_reminders_', 'capsula_family_'].forEach(prefix => {
+    const old = localStorage.getItem(prefix + from);
+    if (old !== null) {
+      localStorage.setItem(prefix + to, old);
+      localStorage.removeItem(prefix + from);
+    }
+  });
+}
+
 // ===== ЛЕКАРСТВА (localStorage) =====
 function getMedicines() {
   const email = getSession();
