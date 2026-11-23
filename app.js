@@ -43,17 +43,22 @@ function formatDate(iso) {
 }
 
 // ===== АВТОРИЗАЦИЯ =====
-function getUsers() {
-  try { return JSON.parse(localStorage.getItem('capsula_users') || '[]'); }
-  catch { return []; }
-}
-function saveUsers(list) { localStorage.setItem('capsula_users', JSON.stringify(list)); }
-function getSession() { return localStorage.getItem('capsula_session'); }
+// Аккаунты и данные живут на сервере (FastAPI + SQLite).
+// В браузере держим только токен (capsula_token) и профиль текущего пользователя.
+let currentUser = null;
 
-async function hashPassword(str) {
-  const data = new TextEncoder().encode(str + '::capsula-salt');
-  const buf = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+// Кэши списков: загружаются с сервера один раз, дальше поиск и фильтры работают мгновенно
+let medsCache = [];
+let remindersCache = [];
+let familyCache = [];
+
+function getSession() { return currentUser ? currentUser.email : null; }
+
+async function loadAllData() {
+  const [meds, reminders, family] = await Promise.all([apiMedicines(), apiReminders(), apiFamily()]);
+  medsCache = meds;
+  remindersCache = reminders;
+  familyCache = family;
 }
 
 function openAuth() { document.getElementById('auth-login').classList.add('active'); }
@@ -81,14 +86,13 @@ async function register() {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { err.innerText = 'Некорректный email.'; return; }
   if (pwd.length < 4) { err.innerText = 'Пароль должен быть минимум 4 символа.'; return; }
   if (pwd !== pwd2) { err.innerText = 'Пароли не совпадают.'; return; }
-  const users = getUsers();
-  if (users.some(u => u.email === email)) { err.innerText = 'Этот email уже зарегистрирован.'; return; }
-  const hash = await hashPassword(pwd);
-  users.push({ name, email, hash });
-  saveUsers(users);
-  localStorage.setItem('capsula_session', email);
+  try {
+    const data = await apiRegister(name, email, pwd);
+    setToken(data.access_token);
+    currentUser = data.user;
+  } catch (e) { err.innerText = e.message; return; }
   closeAuth();
-  enterApp();
+  await enterApp();
 }
 
 async function login() {
@@ -97,34 +101,34 @@ async function login() {
   const err = document.getElementById('login-error');
   err.innerText = '';
   if (!email || !pwd) { err.innerText = 'Введите email и пароль.'; return; }
-  const users = getUsers();
-  const user = users.find(u => u.email === email);
-  const hash = await hashPassword(pwd);
-  if (!user || user.hash !== hash) { err.innerText = 'Неверный email или пароль.'; return; }
-  localStorage.setItem('capsula_session', email);
+  try {
+    const data = await apiLogin(email, pwd);
+    setToken(data.access_token);
+    currentUser = data.user;
+  } catch (e) { err.innerText = e.message; return; }
   closeAuth();
-  enterApp();
+  await enterApp();
 }
 
 function logout() {
-  localStorage.removeItem('capsula_session');
+  clearToken();
+  currentUser = null;
+  medsCache = [];
+  remindersCache = [];
+  familyCache = [];
   closeApp();
 }
 
 function renderProfile() {
-  const email = getSession();
-  const user = getUsers().find(u => u.email === email);
-  if (!user) return;
-  document.getElementById('profile-name').innerText = user.name;
-  document.getElementById('profile-email').innerText = user.email;
+  if (!currentUser) return;
+  document.getElementById('profile-name').innerText = currentUser.name;
+  document.getElementById('profile-email').innerText = currentUser.email;
 }
 
 function openProfileModal() {
-  const email = getSession();
-  const user = getUsers().find(u => u.email === email);
-  if (!user) return;
-  setVal('prof-name', user.name);
-  setVal('prof-email', user.email);
+  if (!currentUser) return;
+  setVal('prof-name', currentUser.name);
+  setVal('prof-email', currentUser.email);
   setVal('prof-password', '');
   document.getElementById('prof-error').innerText = '';
   document.getElementById('profile-modal').classList.add('active');
@@ -137,53 +141,22 @@ async function saveProfile() {
   const newPwd = val('prof-password');
   const err = document.getElementById('prof-error');
   err.innerText = '';
-  const oldEmail = getSession();
 
   if (!name || !newEmail) { err.innerText = 'Заполните имя и email.'; return; }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(newEmail)) { err.innerText = 'Некорректный email.'; return; }
   if (newPwd && newPwd.length < 4) { err.innerText = 'Пароль должен быть минимум 4 символа.'; return; }
 
-  const users = getUsers();
-  const user = users.find(u => u.email === oldEmail);
-  if (!user) { err.innerText = 'Пользователь не найден.'; return; }
-  if (newEmail !== oldEmail && users.some(u => u.email === newEmail)) {
-    err.innerText = 'Этот email уже занят.'; return;
-  }
-
-  user.name = name;
-  if (newPwd) user.hash = await hashPassword(newPwd);
-  if (newEmail !== oldEmail) {
-    user.email = newEmail;
-    migrateUserData(oldEmail, newEmail);
-  }
-  saveUsers(users);
-  localStorage.setItem('capsula_session', newEmail);
+  const payload = { name, email: newEmail };
+  if (newPwd) payload.password = newPwd;
+  try {
+    currentUser = await apiUpdateProfile(payload); // сервер сам поменяет и email, и пароль
+  } catch (e) { err.innerText = e.message; return; }
   closeProfileModal();
   renderProfile();
 }
 
-function migrateUserData(from, to) {
-  ['capsula_medicines_', 'capsula_reminders_', 'capsula_family_'].forEach(prefix => {
-    const old = localStorage.getItem(prefix + from);
-    if (old !== null) {
-      localStorage.setItem(prefix + to, old);
-      localStorage.removeItem(prefix + from);
-    }
-  });
-}
-
-// ===== ЛЕКАРСТВА (localStorage) =====
-function getMedicines() {
-  const email = getSession();
-  if (!email) return [];
-  try { return JSON.parse(localStorage.getItem('capsula_medicines_' + email) || '[]'); }
-  catch { return []; }
-}
-function saveMedicines(list) {
-  const email = getSession();
-  if (!email) return;
-  localStorage.setItem('capsula_medicines_' + email, JSON.stringify(list));
-}
+// ===== ЛЕКАРСТВА (данные приходят с сервера) =====
+function getMedicines() { return medsCache; }
 
 function getStatus(expiry) {
   if (!expiry) return 'ok';
@@ -226,7 +199,7 @@ function renderMedicines() {
     return `<div class="med-card ${st}">
       <div class="med-header"><h3>${esc(m.name)}</h3><span class="badge ${st}">${STATUS_LABELS[st]}</span></div>
       <p><strong>Назначение:</strong> ${esc(m.purpose) || '—'}</p>
-      <p><strong>Количество:</strong> ${m.quantity} ${esc(m.unit)}</p>
+      <p><strong>Количество:</strong> ${m.quantity ?? '—'} ${esc(m.unit)}</p>
       <p><strong>Годен до:</strong> ${formatDate(m.expiry)}</p>
       ${m.dosage ? `<p><strong>Дозировка:</strong> ${esc(m.dosage)}</p>` : ''}
       <div class="med-actions">
@@ -237,7 +210,7 @@ function renderMedicines() {
   }).join('');
 }
 
-function saveMedicine() {
+async function saveMedicine() {
   const name = val('med-name').trim();
   const purpose = val('med-purpose').trim();
   const quantity = val('med-quantity').trim();
@@ -250,54 +223,66 @@ function saveMedicine() {
     return;
   }
 
-  const list = getMedicines();
   const editId = val('med-edit-id');
   const data = { name, purpose, quantity: Number(quantity), unit, expiry, dosage };
 
-  if (editId) {
-    const m = list.find(x => x.id === editId);
-    if (m) Object.assign(m, data);
-  } else {
-    list.push({ id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ...data });
-  }
-
-  saveMedicines(list);
+  try {
+    if (editId) await apiUpdateMedicine(editId, data);
+    else await apiAddMedicine(data);
+    medsCache = await apiMedicines();
+  } catch (e) { alert(e.message); return; }
   closeModal();
   renderMedicines();
 }
 
 function editMedicine(id) {
-  const m = getMedicines().find(x => x.id === id);
+  const m = getMedicines().find(x => String(x.id) === String(id));
   if (!m) return;
   setVal('med-edit-id', m.id);
   setVal('med-name', m.name);
   setVal('med-purpose', m.purpose || '');
-  setVal('med-quantity', m.quantity);
-  setVal('med-unit', m.unit);
-  setVal('med-expiry', m.expiry);
+  setVal('med-quantity', m.quantity ?? '');
+  setVal('med-unit', m.unit || '');
+  setVal('med-expiry', m.expiry || '');
   setVal('med-dosage', m.dosage || '');
   document.getElementById('modal-title').innerText = 'Изменить лекарство';
   openModal();
 }
 
-function deleteMedicine(id) {
-  const m = getMedicines().find(x => x.id === id);
+async function deleteMedicine(id) {
+  const m = getMedicines().find(x => String(x.id) === String(id));
   if (!m) return;
   if (!confirm(`Удалить «${m.name}»?`)) return;
-  saveMedicines(getMedicines().filter(x => x.id !== id));
+  try {
+    await apiDeleteMedicine(m.id);
+    medsCache = await apiMedicines();
+  } catch (e) { alert(e.message); return; }
   renderMedicines();
 }
 
 // ===== ПЕРЕХОД МЕЖДУ ЭКРАНАМИ =====
-function openApp() {
-  if (!getSession()) { openAuth(); return; }
-  enterApp();
+async function openApp() {
+  if (!getToken()) { openAuth(); return; }
+  try {
+    currentUser = await apiMe(); // проверяем, что токен ещё живой
+  } catch (e) {
+    clearToken();
+    currentUser = null;
+    openAuth();
+    return;
+  }
+  await enterApp();
 }
-function enterApp() {
+async function enterApp() {
   document.getElementById('landing').classList.remove('active');
   document.getElementById('app').classList.add('active');
   if (document.getElementById('bg-blobs')) document.getElementById('bg-blobs').style.display = 'none';
   window.scrollTo(0, 0);
+  try {
+    await loadAllData();
+  } catch (e) {
+    alert(e.message); // сервер недоступен — покажем пустые списки
+  }
   renderProfile();
   renderMedicines();
   renderReminders();
@@ -351,60 +336,49 @@ document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 // ===== ДЕМО-ВХОД =====
 async function guestLogin() {
   const email = 'guest@capsula.ru';
-  const users = getUsers();
-  if (!users.some(u => u.email === email)) {
-    const hash = await hashPassword('guest123');
-    users.push({ name: 'Гость', email, hash });
-    saveUsers(users);
+  let data;
+  try {
+    data = await apiLogin(email, 'guest123');
+  } catch (e) {
+    // демо-аккаунта ещё нет на сервере — создаём
+    try { data = await apiRegister('Гость', email, 'guest123'); }
+    catch (e2) { alert(e2.message); return; }
   }
-  seedGuestData(email);
-  localStorage.setItem('capsula_session', email);
+  setToken(data.access_token);
+  currentUser = data.user;
+  await seedGuestData();
   closeAuth();
-  enterApp();
+  await enterApp();
 }
 
-function seedGuestData(email) {
+async function seedGuestData() {
+  // Заполняем демо-аккаунт примерами один раз (если он пуст)
   const plusDays = d => {
     const x = new Date(); x.setDate(x.getDate() + d);
     return x.toISOString().slice(0, 10);
   };
-  const medKey = 'capsula_medicines_' + email;
-  if (!localStorage.getItem(medKey)) {
-    localStorage.setItem(medKey, JSON.stringify([
-      { id: 'g1', name: 'Парацетамол', purpose: 'головная боль, температура', quantity: 12, unit: 'таб.', expiry: plusDays(200), dosage: '500 мг' },
-      { id: 'g2', name: 'Витамин С', purpose: 'иммунитет', quantity: 8, unit: 'таб.', expiry: plusDays(10), dosage: '' },
-      { id: 'g3', name: 'Аспирин', purpose: 'боль, жар', quantity: 5, unit: 'таб.', expiry: '2024-01-01', dosage: '' },
-      { id: 'g4', name: 'Магний B6', purpose: 'нервы, сон', quantity: 40, unit: 'капс.', expiry: plusDays(500), dosage: '' }
-    ]));
-  }
-  const remKey = 'capsula_reminders_' + email;
-  if (!localStorage.getItem(remKey)) {
-    localStorage.setItem(remKey, JSON.stringify([
-      { id: 'r1', medicine: 'Парацетамол', time: '08:00', note: 'После завтрака' },
-      { id: 'r2', medicine: 'Витамин С', time: '20:00', note: '' }
-    ]));
-  }
-  const famKey = 'capsula_family_' + email;
-  if (!localStorage.getItem(famKey)) {
-    localStorage.setItem(famKey, JSON.stringify([
-      { id: 'f1', name: 'Мама', role: 'мама', avatar: '👵' },
-      { id: 'f2', name: 'Артём', role: 'сын', avatar: '👦' }
-    ]));
-  }
+  try {
+    const [meds, reminders, family] = await Promise.all([apiMedicines(), apiReminders(), apiFamily()]);
+    if (meds.length === 0) {
+      await apiAddMedicine({ name: 'Парацетамол', purpose: 'головная боль, температура', quantity: 12, unit: 'таб.', expiry: plusDays(200), dosage: '500 мг' });
+      await apiAddMedicine({ name: 'Витамин С', purpose: 'иммунитет', quantity: 8, unit: 'таб.', expiry: plusDays(10), dosage: '' });
+      await apiAddMedicine({ name: 'Аспирин', purpose: 'боль, жар', quantity: 5, unit: 'таб.', expiry: '2024-01-01', dosage: '' });
+      await apiAddMedicine({ name: 'Магний B6', purpose: 'нервы, сон', quantity: 40, unit: 'капс.', expiry: plusDays(500), dosage: '' });
+    }
+    if (reminders.length === 0) {
+      await apiAddReminder({ medicine_name: 'Парацетамол', time: '08:00', note: 'После завтрака' });
+      await apiAddReminder({ medicine_name: 'Витамин С', time: '20:00', note: '' });
+    }
+    if (family.length === 0) {
+      await apiAddFamily({ name: 'Мама', role: 'мама', avatar: '👵' });
+      await apiAddFamily({ name: 'Артём', role: 'сын', avatar: '👦' });
+    }
+  } catch (e) { /* демо-данные не критичны для входа */ }
 }
 
 // ===== НАПОМИНАНИЯ =====
-function getReminders() {
-  const email = getSession();
-  if (!email) return [];
-  try { return JSON.parse(localStorage.getItem('capsula_reminders_' + email) || '[]'); }
-  catch { return []; }
-}
-function saveReminders(list) {
-  const email = getSession();
-  if (!email) return;
-  localStorage.setItem('capsula_reminders_' + email, JSON.stringify(list));
-}
+function getReminders() { return remindersCache; }
+
 function renderReminders() {
   const container = document.getElementById('reminders-list');
   const list = getReminders();
@@ -419,7 +393,7 @@ function renderReminders() {
   }
   container.innerHTML = list.map(r => `<div class="reminder-item">
     <div class="reminder-icon">💊</div>
-    <div class="reminder-info"><h4>${esc(r.medicine)}</h4><p>${r.time}${r.note ? ' · ' + esc(r.note) : ''}</p></div>
+    <div class="reminder-info"><h4>${esc(r.medicine_name)}</h4><p>${r.time}${r.note ? ' · ' + esc(r.note) : ''}</p></div>
     <button class="btn-mini danger" onclick="deleteReminder('${r.id}')">Удалить</button>
   </div>`).join('');
 }
@@ -434,34 +408,29 @@ function openReminderModal() {
   document.getElementById('reminder-modal').classList.add('active');
 }
 function closeReminderModal() { document.getElementById('reminder-modal').classList.remove('active'); }
-function saveReminder() {
+async function saveReminder() {
   const medicine = val('rem-medicine');
   const time = val('rem-time');
   const note = val('rem-note').trim();
   if (!medicine || !time) { alert('Выберите лекарство и время.'); return; }
-  const list = getReminders();
-  list.push({ id: 'r' + Date.now().toString(36), medicine, time, note });
-  saveReminders(list);
+  try {
+    await apiAddReminder({ medicine_name: medicine, time, note });
+    remindersCache = await apiReminders();
+  } catch (e) { alert(e.message); return; }
   closeReminderModal();
   renderReminders();
 }
-function deleteReminder(id) {
-  saveReminders(getReminders().filter(r => r.id !== id));
+async function deleteReminder(id) {
+  try {
+    await apiDeleteReminder(id);
+    remindersCache = await apiReminders();
+  } catch (e) { alert(e.message); return; }
   renderReminders();
 }
 
 // ===== СЕМЬЯ =====
-function getFamily() {
-  const email = getSession();
-  if (!email) return [];
-  try { return JSON.parse(localStorage.getItem('capsula_family_' + email) || '[]'); }
-  catch { return []; }
-}
-function saveFamily(list) {
-  const email = getSession();
-  if (!email) return;
-  localStorage.setItem('capsula_family_' + email, JSON.stringify(list));
-}
+function getFamily() { return familyCache; }
+
 function renderFamily() {
   const grid = document.getElementById('family-grid');
   const list = getFamily();
@@ -478,18 +447,22 @@ function openFamilyModal() {
   document.getElementById('family-modal').classList.add('active');
 }
 function closeFamilyModal() { document.getElementById('family-modal').classList.remove('active'); }
-function saveFamilyMember() {
+async function saveFamilyMember() {
   const name = val('family-name').trim();
   const role = val('family-role').trim();
   const avatar = val('family-avatar');
   if (!name) { alert('Введите имя.'); return; }
-  const list = getFamily();
-  list.push({ id: 'f' + Date.now().toString(36), name, role, avatar });
-  saveFamily(list);
+  try {
+    await apiAddFamily({ name, role, avatar });
+    familyCache = await apiFamily();
+  } catch (e) { alert(e.message); return; }
   closeFamilyModal();
   renderFamily();
 }
-function deleteFamilyMember(id) {
-  saveFamily(getFamily().filter(f => f.id !== id));
+async function deleteFamilyMember(id) {
+  try {
+    await apiDeleteFamily(id);
+    familyCache = await apiFamily();
+  } catch (e) { alert(e.message); return; }
   renderFamily();
 }
