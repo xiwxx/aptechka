@@ -333,49 +333,6 @@ const observer = new IntersectionObserver(entries => {
 }, { threshold: 0.1 });
 document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-// ===== ДЕМО-ВХОД =====
-async function guestLogin() {
-  const email = 'guest@capsula.ru';
-  let data;
-  try {
-    data = await apiLogin(email, 'guest123');
-  } catch (e) {
-    // демо-аккаунта ещё нет на сервере — создаём
-    try { data = await apiRegister('Гость', email, 'guest123'); }
-    catch (e2) { alert(e2.message); return; }
-  }
-  setToken(data.access_token);
-  currentUser = data.user;
-  await seedGuestData();
-  closeAuth();
-  await enterApp();
-}
-
-async function seedGuestData() {
-  // Заполняем демо-аккаунт примерами один раз (если он пуст)
-  const plusDays = d => {
-    const x = new Date(); x.setDate(x.getDate() + d);
-    return x.toISOString().slice(0, 10);
-  };
-  try {
-    const [meds, reminders, family] = await Promise.all([apiMedicines(), apiReminders(), apiFamily()]);
-    if (meds.length === 0) {
-      await apiAddMedicine({ name: 'Парацетамол', purpose: 'головная боль, температура', quantity: 12, unit: 'таб.', expiry: plusDays(200), dosage: '500 мг' });
-      await apiAddMedicine({ name: 'Витамин С', purpose: 'иммунитет', quantity: 8, unit: 'таб.', expiry: plusDays(10), dosage: '' });
-      await apiAddMedicine({ name: 'Аспирин', purpose: 'боль, жар', quantity: 5, unit: 'таб.', expiry: '2024-01-01', dosage: '' });
-      await apiAddMedicine({ name: 'Магний B6', purpose: 'нервы, сон', quantity: 40, unit: 'капс.', expiry: plusDays(500), dosage: '' });
-    }
-    if (reminders.length === 0) {
-      await apiAddReminder({ medicine_name: 'Парацетамол', time: '08:00', note: 'После завтрака' });
-      await apiAddReminder({ medicine_name: 'Витамин С', time: '20:00', note: '' });
-    }
-    if (family.length === 0) {
-      await apiAddFamily({ name: 'Мама', role: 'мама', avatar: '👵' });
-      await apiAddFamily({ name: 'Артём', role: 'сын', avatar: '👦' });
-    }
-  } catch (e) { /* демо-данные не критичны для входа */ }
-}
-
 // ===== НАПОМИНАНИЯ =====
 function getReminders() { return remindersCache; }
 
